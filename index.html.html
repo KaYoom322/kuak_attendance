@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>국원 정보 조회</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Gmarket+Sans:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #21262d;
+    --border: #30363d;
+    --accent: #4f8ef7;
+    --accent2: #7c5cfc;
+    --green: #3fb950;
+    --red: #f85149;
+    --yellow: #d29922;
+    --gold: #FFD700;
+    --silver: #C0C0C0;
+    --bronze: #CD7F32;
+    --text: #e6edf3;
+    --text-muted: #8b949e;
+    --radius: 12px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(79,142,247,0.12) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 35% at 80% 80%, rgba(124,92,252,0.10) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+  .wrap { position: relative; z-index: 1; width: 100%; max-width: 520px; padding: 40px 20px 60px; }
+  .page { display: none; animation: fadeUp .35s ease; }
+  .page.active { display: block; }
+  @keyframes fadeUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+
+  /* 로딩 */
+  .loading-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(13,17,23,0.85); z-index: 9999;
+    align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+  }
+  .loading-overlay.show { display: flex; }
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: var(--text-muted); }
+
+  /* 헤더 */
+  .logo-area { text-align: center; margin-bottom: 36px; }
+  .logo-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; font-family: 'Gmarket Sans', sans-serif; font-weight: 700;
+    font-size: 13px; letter-spacing: .08em; padding: 5px 14px; border-radius: 20px; margin-bottom: 14px;
+  }
+  .logo-title {
+    font-family: 'Gmarket Sans', sans-serif; font-size: 28px; font-weight: 700;
+    background: linear-gradient(135deg, #e6edf3 30%, #8b949e);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px;
+  }
+  .logo-desc { color: var(--text-muted); font-size: 13.5px; line-height: 1.7; }
+
+  /* 카드 */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; margin-bottom: 16px; }
+
+  /* 폼 */
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-size: 12px; font-weight: 500; color: var(--text-muted); letter-spacing: .06em; margin-bottom: 7px; text-transform: uppercase; }
+  .field input, .field select, .field textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: 'Noto Sans KR', sans-serif;
+    font-size: 14.5px; padding: 12px 14px; outline: none; transition: border-color .2s; appearance: none;
+  }
+  .field textarea { resize: vertical; min-height: 70px; font-size: 13.5px; line-height: 1.6; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,.15); }
+  .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238b949e' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; cursor: pointer;
+  }
+  .field select option { background: var(--surface2); }
+
+  /* 버튼 */
+  .btn { width: 100%; padding: 13px; border-radius: 8px; border: none; font-family: 'Noto Sans KR', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: all .2s; letter-spacing: .02em; }
+  .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; margin-bottom: 10px; }
+  .btn-primary:hover { opacity: .88; transform: translateY(-1px); }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); font-size: 13px; padding: 10px; }
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-green { background: rgba(63,185,80,.15); border: 1px solid rgba(63,185,80,.4); color: var(--green); font-size: 14px; padding: 12px; }
+  .btn-green:hover { background: rgba(63,185,80,.25); }
+  .btn-teal { background: rgba(79,142,247,.12); border: 1px solid rgba(79,142,247,.3); color: var(--accent); font-size: 13px; padding: 10px; margin-bottom: 10px; }
+  .btn-teal:hover { background: rgba(79,142,247,.22); }
+
+  /* 에러 */
+  .error-msg { display: none; background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.3); color: var(--red); border-radius: 8px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px; }
+  .error-msg.show { display: block; }
+
+  /* 결과 헤더 */
+  .result-header { display: flex; align-items: center; gap: 14px; margin-bottom: 24px; }
+  .avatar { width: 54px; height: 54px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 900; color: #fff; flex-shrink: 0; font-family: 'Gmarket Sans', sans-serif; }
+  .result-name { font-size: 20px; font-weight: 700; margin-bottom: 3px; }
+  .result-meta { font-size: 13px; color: var(--text-muted); }
+
+  /* 출석률 링 */
+  .rate-section { text-align: center; padding: 20px 0; }
+  .rate-ring-wrap { position: relative; display: inline-block; margin-bottom: 12px; }
+  .rate-ring-wrap svg { transform: rotate(-90deg); }
+  .rate-ring-bg { fill: none; stroke: var(--surface2); stroke-width: 10; }
+  .rate-ring-fg { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset .8s cubic-bezier(.4,0,.2,1); }
+  .rate-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .rate-num { font-family: 'Gmarket Sans', sans-serif; font-size: 28px; font-weight: 700; }
+  .rate-label { font-size: 11px; color: var(--text-muted); }
+
+  /* 인증서 배지 */
+  .cert-badge { display: flex; align-items: center; gap: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-top: 16px; }
+  .cert-icon { font-size: 28px; flex-shrink: 0; }
+  .cert-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
+  .cert-desc { font-size: 12px; color: var(--text-muted); }
+  .cert-badge.ok { border-color: rgba(63,185,80,.4); background: rgba(63,185,80,.07); }
+  .cert-badge.no { border-color: rgba(248,81,73,.3); background: rgba(248,81,73,.06); }
+
+  .notice-box { background: rgba(210,153,34,.08); border: 1px solid rgba(210,153,34,.3); border-radius: 8px; padding: 13px 15px; font-size: 12.5px; color: #c9a227; line-height: 1.65; margin-top: 14px; }
+
+  /* 순위 */
+  .rank-section { margin-top: 20px; }
+  .rank-section-title { font-family: 'Gmarket Sans', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .rank-list { display: flex; flex-direction: column; gap: 6px; }
+  .rank-item { display: flex; align-items: center; gap: 12px; background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 11px 14px; transition: all .2s; }
+  .rank-item.me { border-color: var(--accent); background: rgba(79,142,247,.1); box-shadow: 0 0 0 1px rgba(79,142,247,.2); }
+  .rank-item.rank-1 { border-color: rgba(255,215,0,.5); background: rgba(255,215,0,.07); }
+  .rank-item.rank-2 { border-color: rgba(192,192,192,.4); background: rgba(192,192,192,.05); }
+  .rank-item.rank-3 { border-color: rgba(205,127,50,.4); background: rgba(205,127,50,.06); }
+  .rank-num { font-family: 'Gmarket Sans', sans-serif; font-size: 15px; font-weight: 700; min-width: 28px; text-align: center; }
+  .rank-medal { font-size: 18px; }
+  .rank-name { flex: 1; font-size: 14px; font-weight: 500; }
+  .rank-dept { font-size: 11px; color: var(--text-muted); }
+  .rank-pct { font-family: 'Gmarket Sans', sans-serif; font-size: 14px; font-weight: 700; }
+  .rank-me-badge { font-size: 10px; font-weight: 700; color: var(--accent); background: rgba(79,142,247,.15); border-radius: 4px; padding: 2px 6px; margin-left: 4px; }
+  .my-rank-box { display: flex; align-items: center; gap: 12px; background: rgba(79,142,247,.1); border: 1px solid rgba(79,142,247,.3); border-radius: 10px; padding: 14px 16px; margin-top: 10px; }
+  .my-rank-icon { font-size: 24px; }
+  .my-rank-label { font-size: 13px; color: var(--text-muted); margin-bottom: 2px; }
+  .my-rank-num { font-family: 'Gmarket Sans', sans-serif; font-size: 22px; font-weight: 700; color: var(--accent); }
+
+  /* ── 출석률 기준 페이지 ── */
+  .criteria-btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .criteria-dept-btn {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 500;
+    padding: 14px 10px; cursor: pointer; transition: all .2s; text-align: center;
+  }
+  .criteria-dept-btn:hover, .criteria-dept-btn.active { border-color: var(--accent); background: rgba(79,142,247,.1); color: var(--accent); }
+  .criteria-dept-btn .dept-icon { font-size: 20px; display: block; margin-bottom: 5px; }
+  .criteria-all-btn {
+    width: 100%; background: linear-gradient(135deg, rgba(79,142,247,.15), rgba(124,92,252,.15));
+    border: 1px solid rgba(79,142,247,.3); border-radius: 10px;
+    color: var(--accent); font-family: 'Noto Sans KR', sans-serif; font-size: 14px; font-weight: 700;
+    padding: 14px; cursor: pointer; transition: all .2s; margin-bottom: 16px;
+  }
+  .criteria-all-btn:hover { background: linear-gradient(135deg, rgba(79,142,247,.25), rgba(124,92,252,.25)); }
+
+  .criteria-content { display: none; }
+  .criteria-content.show { display: block; animation: fadeUp .3s ease; }
+  .criteria-section { margin-bottom: 20px; }
+  .criteria-section-title {
+    font-family: 'Gmarket Sans', sans-serif; font-size: 15px; font-weight: 700;
+    margin-bottom: 10px; padding: 10px 14px;
+    background: linear-gradient(135deg, rgba(79,142,247,.15), rgba(124,92,252,.1));
+    border: 1px solid rgba(79,142,247,.2); border-radius: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .criteria-item {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    padding: 10px 14px; border-radius: 8px; margin-bottom: 4px;
+    background: var(--surface2); border: 1px solid var(--border);
+    gap: 10px;
+  }
+  .criteria-label { font-size: 13.5px; flex: 1; line-height: 1.5; }
+  .criteria-pct {
+    font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .criteria-pct.normal { background: rgba(79,142,247,.15); color: var(--accent); }
+  .criteria-pct.bonus { background: rgba(63,185,80,.15); color: var(--green); }
+  .criteria-pct.minus { background: rgba(248,81,73,.12); color: var(--red); }
+  .criteria-sub { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  /* 관리자 */
+  .dept-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .dept-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 500; padding: 14px 10px; cursor: pointer; transition: all .2s; text-align: center; }
+  .dept-btn:hover, .dept-btn.active { border-color: var(--accent); background: rgba(79,142,247,.1); color: var(--accent); }
+  .dept-btn .dept-icon { font-size: 20px; display: block; margin-bottom: 5px; }
+
+  .member-list { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .member-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 500; padding: 11px 6px; cursor: pointer; transition: all .2s; text-align: center; }
+  .member-btn:hover, .member-btn.active { border-color: var(--accent2); background: rgba(124,92,252,.1); color: var(--accent2); }
+  .member-btn.is-leader { border-color: rgba(210,153,34,.5); }
+
+  /* 체크박스 */
+  .check-group { margin-bottom: 20px; }
+  .check-group-title { font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--text-muted); text-transform: uppercase; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  .check-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px; cursor: pointer;
+    transition: background .15s; margin-bottom: 4px; user-select: none;
+  }
+  .check-item:hover { background: var(--surface2); }
+  .check-box {
+    width: 20px; height: 20px; border: 2px solid var(--border);
+    border-radius: 5px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .18s; font-size: 13px; font-weight: 700; color: #fff;
+  }
+  .check-item.checked .check-box { background: var(--accent); border-color: var(--accent); }
+  .check-item.checked .check-box::after { content: '✓'; }
+  .check-label { font-size: 13.5px; flex: 1; }
+  .check-pct { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 20px; background: var(--surface2); }
+  .check-pct.plus { color: var(--green); }
+  .check-pct.minus { color: var(--red); background: rgba(248,81,73,.1); }
+
+  /* 현재 출석률 */
+  .current-rate-bar { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; }
+  .current-rate-label { font-size: 13px; color: var(--text-muted); }
+  .current-rate-num { font-family: 'Gmarket Sans', sans-serif; font-size: 22px; font-weight: 700; }
+
+  /* 가산점 입력 */
+  .bonus-section { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .bonus-title { font-size: 13px; font-weight: 700; margin-bottom: 10px; color: var(--text-muted); letter-spacing: .04em; }
+  .bonus-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+  .bonus-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 15px; padding: 10px 14px; outline: none; transition: border-color .2s; text-align: center; font-weight: 700; }
+  .bonus-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,.15); }
+  .bonus-reason-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'Noto Sans KR', sans-serif; font-size: 13px; padding: 10px 14px; outline: none; transition: border-color .2s; margin-bottom: 8px; }
+  .bonus-reason-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,.15); }
+  .bonus-apply-btn { background: rgba(79,142,247,.15); border: 1px solid rgba(79,142,247,.3); color: var(--accent); border-radius: 8px; padding: 10px 16px; font-family: 'Noto Sans KR', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap; }
+  .bonus-apply-btn:hover { background: rgba(79,142,247,.25); }
+  .bonus-desc { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
+  .bonus-delete-btn {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 14px; cursor: pointer; padding: 2px 4px; border-radius: 4px;
+    flex-shrink: 0; transition: all .15s; line-height: 1;
+  }
+  .bonus-delete-btn:hover { color: var(--red); background: rgba(248,81,73,.12); }
+
+  /* 가산점 기록 */
+  .bonus-log-section { margin-bottom: 16px; }
+  .bonus-log-title { font-size: 12px; font-weight: 700; color: var(--text-muted); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px; }
+  .bonus-log-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 12px; }
+  .bonus-log-item { display: flex; align-items: flex-start; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; }
+  .bonus-log-amount { font-family: 'Gmarket Sans', sans-serif; font-size: 15px; font-weight: 700; flex-shrink: 0; min-width: 44px; }
+  .bonus-log-amount.pos { color: var(--green); }
+  .bonus-log-amount.neg { color: var(--red); }
+  .bonus-log-right { flex: 1; }
+  .bonus-log-reason { font-size: 13px; margin-bottom: 3px; }
+  .bonus-log-date { font-size: 11px; color: var(--text-muted); }
+
+  /* 관리자 전체 순위 */
+  .admin-rank-section { margin-top: 8px; }
+  .admin-rank-title { font-family: 'Gmarket Sans', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+  .admin-rank-list { display: flex; flex-direction: column; gap: 5px; }
+  .admin-rank-item { display: flex; align-items: center; gap: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 13px; }
+  .admin-rank-item.rank-1 { border-color: rgba(255,215,0,.5); background: rgba(255,215,0,.07); }
+  .admin-rank-item.rank-2 { border-color: rgba(192,192,192,.4); background: rgba(192,192,192,.05); }
+  .admin-rank-item.rank-3 { border-color: rgba(205,127,50,.4); background: rgba(205,127,50,.06); }
+  .admin-rank-num { font-family: 'Gmarket Sans', sans-serif; font-size: 13px; font-weight: 700; min-width: 26px; text-align: center; color: var(--text-muted); }
+  .admin-rank-name { flex: 1; font-size: 13px; font-weight: 500; }
+  .admin-rank-dept { font-size: 11px; color: var(--text-muted); }
+  .admin-rank-pct { font-family: 'Gmarket Sans', sans-serif; font-size: 13px; font-weight: 700; }
+
+  .section-title { font-family: 'Gmarket Sans', sans-serif; font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+  .back-row { margin-top: 8px; }
+  .pw-icon { text-align: center; font-size: 40px; margin-bottom: 14px; }
+  .pw-title { text-align: center; font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .pw-desc { text-align: center; font-size: 13px; color: var(--text-muted); margin-bottom: 24px; }
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  /* 토스트 */
+  .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px); color: #fff; font-size: 14px; font-weight: 600; padding: 12px 24px; border-radius: 30px; opacity: 0; transition: all .4s cubic-bezier(.4,0,.2,1); z-index: 9999; white-space: nowrap; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">데이터 불러오는 중...</div>
+</div>
+
+<div class="wrap">
+
+  <!-- ══ PAGE 1: 기본 페이지 ══ -->
+  <div class="page active" id="page-main">
+    <div class="logo-area">
+      <div class="logo-badge">악티브 학생회</div>
+      <div class="logo-title">국원 정보 조회</div>
+      <div class="logo-desc">학번과 이름을 입력하시면<br>출석률을 확인하실 수 있습니다.</div>
+    </div>
+    <div class="card">
+      <div class="field"><label>이름</label><input type="text" id="inp-name" placeholder="홍길동"></div>
+      <div class="field"><label>학번</label><input type="text" id="inp-sid" placeholder="2025130XXX" maxlength="10"></div>
+      <div class="field">
+        <label>국서</label>
+        <select id="inp-dept">
+          <option value="">선택해주세요</option>
+          <option value="인권연대국">인권연대국</option>
+          <option value="문화교류국">문화교류국</option>
+          <option value="행정복지국">행정복지국</option>
+          <option value="재정회계국">재정회계국</option>
+          <option value="디자인홍보팀">디자인홍보팀</option>
+        </select>
+      </div>
+      <div class="error-msg" id="main-error">입력하신 정보와 일치하는 국원을 찾을 수 없습니다.</div>
+      <button class="btn btn-primary" onclick="doSearch()">조회하기</button>
+      <button class="btn btn-outline" onclick="goPage('page-admin-login')" style="margin-bottom:10px">관리자</button>
+      <button class="btn btn-teal" onclick="goPage('page-criteria')">📋 출석률 부여 기준</button>
+    </div>
+  </div>
+
+  <!-- ══ PAGE 2: 조회 결과 ══ -->
+  <div class="page" id="page-result">
+    <div class="logo-area">
+      <div class="logo-badge">조회 결과</div>
+      <div class="logo-title">출석 현황</div>
+    </div>
+    <div class="card">
+      <div class="result-header">
+        <div class="avatar" id="res-avatar">홍</div>
+        <div>
+          <div class="result-name" id="res-name">홍길동</div>
+          <div class="result-meta" id="res-meta">2025130000 · 인권연대국</div>
+        </div>
+      </div>
+      <div class="rate-section">
+        <div class="rate-ring-wrap">
+          <svg width="130" height="130" viewBox="0 0 130 130">
+            <circle class="rate-ring-bg" cx="65" cy="65" r="55"/>
+            <circle class="rate-ring-fg" id="res-ring" cx="65" cy="65" r="55" stroke-dasharray="345.4" stroke-dashoffset="345.4"/>
+          </svg>
+          <div class="rate-center">
+            <span class="rate-num" id="res-pct">0%</span>
+            <span class="rate-label">출석률</span>
+          </div>
+        </div>
+      </div>
+      <div class="cert-badge" id="cert-badge">
+        <div class="cert-icon" id="cert-icon">🎖️</div>
+        <div>
+          <div class="cert-title" id="cert-title">활동 인증서 발급 가능</div>
+          <div class="cert-desc" id="cert-desc">출석률 70% 이상으로 인증서를 발급받을 수 있습니다.</div>
+        </div>
+      </div>
+      <div class="notice-box">
+        📌 출석률 70% 이상인 경우에만 활동 인증서 발급이 가능합니다.<br>
+        자세한 활동별 출석 인정 기준은 각 국장에게 문의해주시기 바라며,
+        학생회의 원활한 운영을 위해 각 국서 구성원분들의 적극적인 참여 부탁드립니다.
+      </div>
+      <div class="divider"></div>
+      <div class="rank-section" style="margin-bottom:16px">
+        <div class="rank-section-title">📋 나의 활동 내역</div>
+        <div id="res-activity-list"></div>
+      </div>
+      <div class="divider"></div>
+      <div class="rank-section">
+        <div class="rank-section-title">🏆 전체 출석률 순위</div>
+        <div class="rank-list" id="rank-list"></div>
+        <div class="my-rank-box" id="my-rank-box" style="display:none">
+          <div class="my-rank-icon">📍</div>
+          <div>
+            <div class="my-rank-label">나의 순위</div>
+            <div class="my-rank-num" id="my-rank-num">-위</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="back-row">
+      <button class="btn btn-outline" onclick="goPage('page-main')">← 기본 페이지로</button>
+    </div>
+  </div>
+
+  <!-- ══ PAGE 3: 출석률 부여 기준 ══ -->
+  <div class="page" id="page-criteria">
+    <div class="logo-area">
+      <div class="logo-badge">악티브 학생회</div>
+      <div class="logo-title">출석률 부여 기준</div>
+      <div class="logo-desc">각 국서별 출석률 산정 기준을 확인하세요.</div>
+    </div>
+
+    <div class="criteria-btn-grid">
+      <button class="criteria-dept-btn" onclick="showCriteria('common')"><span class="dept-icon">📢</span>공통 학생회 사업</button>
+      <button class="criteria-dept-btn" onclick="showCriteria('인권연대국')"><span class="dept-icon">✊</span>인권연대국</button>
+      <button class="criteria-dept-btn" onclick="showCriteria('문화교류국')"><span class="dept-icon">🎭</span>문화교류국</button>
+      <button class="criteria-dept-btn" onclick="showCriteria('행정복지국')"><span class="dept-icon">🏛️</span>행정복지국</button>
+      <button class="criteria-dept-btn" onclick="showCriteria('재정회계국')"><span class="dept-icon">💰</span>재정회계국</button>
+      <button class="criteria-dept-btn" onclick="showCriteria('디자인홍보팀')"><span class="dept-icon">🎨</span>디자인홍보팀</button>
+    </div>
+    <button class="criteria-all-btn" onclick="showCriteria('all')">📋 전체 기준 한 눈에 보기</button>
+
+    <div class="criteria-content" id="criteria-content"></div>
+
+    <div class="back-row">
+      <button class="btn btn-outline" onclick="goPage('page-main')">← 기본 페이지로</button>
+    </div>
+  </div>
+
+  <!-- ══ PAGE 4: 관리자 로그인 ══ -->
+  <div class="page" id="page-admin-login">
+    <div class="card">
+      <div class="pw-icon">🔐</div>
+      <div class="pw-title">관리자 로그인</div>
+      <div class="pw-desc">관리자 비밀번호를 입력해주세요.</div>
+      <div class="field"><label>비밀번호</label><input type="password" id="inp-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="error-msg" id="pw-error">비밀번호가 올바르지 않습니다.</div>
+      <button class="btn btn-primary" onclick="doLogin()">로그인</button>
+      <button class="btn btn-outline" onclick="goPage('page-main')" style="margin-top:8px">← 돌아가기</button>
+    </div>
+  </div>
+
+  <!-- ══ PAGE 5: 관리자 ══ -->
+  <div class="page" id="page-admin">
+    <div class="logo-area">
+      <div class="logo-badge">관리자 모드</div>
+      <div class="logo-title">국서 선택</div>
+    </div>
+    <div class="dept-grid">
+      <button class="dept-btn" onclick="selectDept('인권연대국')"><span class="dept-icon">✊</span>인권연대국</button>
+      <button class="dept-btn" onclick="selectDept('문화교류국')"><span class="dept-icon">🎭</span>문화교류국</button>
+      <button class="dept-btn" onclick="selectDept('행정복지국')"><span class="dept-icon">🏛️</span>행정복지국</button>
+      <button class="dept-btn" onclick="selectDept('재정회계국')"><span class="dept-icon">💰</span>재정회계국</button>
+      <button class="dept-btn" onclick="selectDept('디자인홍보팀')" style="grid-column:1/-1"><span class="dept-icon">🎨</span>디자인홍보팀</button>
+    </div>
+
+    <div id="member-section" style="display:none">
+      <div class="section-title" id="member-section-title"></div>
+      <div class="member-list" id="member-list"></div>
+    </div>
+
+    <div id="check-section" style="display:none">
+      <div class="card">
+        <div class="section-title" id="check-member-name"></div>
+        <div class="current-rate-bar">
+          <span class="current-rate-label">현재 출석률</span>
+          <span class="current-rate-num" id="admin-rate-num">0%</span>
+        </div>
+
+        <!-- 가산점 기록 -->
+        <div class="bonus-log-section">
+          <div class="bonus-log-title">📝 가산점 기록</div>
+          <div id="bonus-log-list"><div class="bonus-log-empty">기록 없음</div></div>
+        </div>
+
+        <!-- 가산점 입력 -->
+        <div class="bonus-section">
+          <div class="bonus-title">➕ 가산점 / 감점 입력</div>
+          <div class="bonus-row">
+            <input type="number" class="bonus-input" id="bonus-input" placeholder="+5 또는 -5">
+            <button class="bonus-apply-btn" onclick="applyBonus()">적용</button>
+          </div>
+          <input type="text" class="bonus-reason-input" id="bonus-reason" placeholder="이유를 입력해주세요 (예: 농활 추가 참여)">
+          <div class="bonus-desc">숫자 입력 후 이유를 작성하고 적용 버튼을 눌러주세요.</div>
+        </div>
+
+        <div id="check-items-wrap"></div>
+
+        <button class="btn btn-green" onclick="saveRate()">💾 저장하기</button>
+      </div>
+    </div>
+
+    <div class="back-row">
+      <button class="btn btn-outline" onclick="goPage('page-main')">← 기본 페이지로</button>
+    </div>
+
+    <!-- 전체 순위 -->
+    <div class="card admin-rank-section" id="admin-rank-section" style="margin-top:16px; display:none">
+      <div class="admin-rank-title">🏆 전체 출석률 순위</div>
+      <div class="admin-rank-list" id="admin-rank-list"></div>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════
+// 설정
+// ════════════════════════════════
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw98hqIJTvkllll2L2PiWKHHVnglE40xHLpVZlGw7DU3-PmWh59a3LiVdexiLfw25Nk/exec';
+
+const MEMBERS = {
+  "문화교류국": [
+    {name:"김예건",sid:"2025130528",role:"국원"},{name:"남수영",sid:"2025130531",role:"국원"},
+    {name:"손영찬",sid:"2025130502",role:"국원"},{name:"정위세",sid:"2025130568",role:"국원"},
+    {name:"장의찬",sid:"2025130529",role:"국원"},{name:"이은우",sid:"2026130532",role:"국원"},
+    {name:"정승빈",sid:"2026130511",role:"국원"},{name:"최성준",sid:"2026130543",role:"국원"},
+    {name:"김지원",sid:"2026130541",role:"국원"},{name:"이효원",sid:"2026130564",role:"국원"},
+    {name:"송유빈",sid:"2026130533",role:"국원"},
+  ],
+  "행정복지국": [
+    {name:"김예영",sid:"2025130557",role:"국원"},{name:"손예원",sid:"2025130580",role:"국원"},
+    {name:"윤소정",sid:"2025130526",role:"국원"},{name:"장서윤",sid:"2025130574",role:"국원"},
+    {name:"김나현",sid:"2025130503",role:"국원"},{name:"김보빈",sid:"2026130503",role:"국원"},
+    {name:"나문정",sid:"2026130582",role:"국원"},{name:"곽예은",sid:"2026130595",role:"국원"},
+    {name:"차윤건",sid:"2026130587",role:"국원"},{name:"정지경",sid:"2026130527",role:"국원"},
+  ],
+  "인권연대국": [
+    {name:"김동현",sid:"2025130564",role:"국원"},{name:"김예중",sid:"2025130552",role:"국원"},
+    {name:"박정민",sid:"2025130589",role:"국원"},{name:"이영은",sid:"2025130525",role:"국원"},
+    {name:"임승아",sid:"2025130583",role:"국원"},{name:"천유은",sid:"2025130559",role:"국원"},
+    {name:"김예은",sid:"2026130531",role:"국원"},{name:"이현지",sid:"2026130524",role:"국원"},
+    {name:"최희주",sid:"2026130509",role:"국원"},{name:"노시후",sid:"2026130539",role:"국원"},
+    {name:"현경훈",sid:"2026130588",role:"국원"},
+  ],
+  "재정회계국": [
+    {name:"정세림",sid:"2025130563",role:"국원"},{name:"박서현",sid:"2025130516",role:"국원"},
+    {name:"유시연",sid:"2026130576",role:"국원"},{name:"민정준",sid:"2026130517",role:"국원"},
+  ],
+  "디자인홍보팀": [
+    {name:"김민형",sid:"2025130581",role:"국원"},{name:"우연성",sid:"2025130577",role:"국원"},
+    {name:"이재호",sid:"2026130557",role:"국원"},{name:"박수민",sid:"2026130585",role:"국원"},
+  ],
+};
+
+const ACTIVITIES = {
+  "공통": [
+    {label:"주점 참여",pct:15},{label:"일일호프 참여",pct:20},{label:"수시논술간식행사 참여",pct:5},
+    {label:"녹두제 부스 준비위원회 (가산점)",pct:10,bonus:true},
+  ],
+  "인권연대국": [
+    {label:"농활 참여",pct:25},{label:"제1차 분기별 테마활동 참여",pct:5},
+    {label:"제2차 분기별 테마활동 참여",pct:5},{label:"제3차 분기별 테마활동 참여",pct:5},
+    {label:"26-1 중간고사 퀴즈활동 참여",pct:5},{label:"26-1 기말고사 퀴즈활동 참여",pct:5},
+    {label:"26-2 중간고사 퀴즈활동 참여",pct:5},{label:"인권 토크 콘서트 참여",pct:5},
+    {label:"'사회학을 걷다' 파주 답사 참여 (가산점)",pct:10,bonus:true},
+  ],
+  "문화교류국": [
+    {label:"교류반 MT 참여",pct:15},{label:"미니고연전 참여",pct:20},
+    {label:"교류반 짝문화 참여",pct:10},{label:"총MT 참여",pct:15},
+    {label:"악만추 참여 (가산점)",pct:10,bonus:true},
+  ],
+  "행정복지국": [
+    {label:"과방 청소 참여 1",pct:5},{label:"과방 청소 참여 2",pct:5},
+    {label:"과방 청소 추가 참여 1",pct:5},{label:"과방 청소 추가 참여 2",pct:5},
+    {label:"간식 행사 1회 참여",pct:5},{label:"간식 행사 2회 참여",pct:5},
+    {label:"스터디윗악칠 1회 참여",pct:5},{label:"스터디윗악칠 2회 참여",pct:5},
+    {label:"회의 2회 전부 불참 (감점)",pct:-5,minus:true},
+  ],
+  "재정회계국": [
+    {label:"월별보고 작성 1회",pct:20},{label:"월별보고 작성 2회",pct:20},
+    {label:"뒤풀이 정산 1회",pct:20},
+  ],
+  "디자인홍보팀": [
+    {label:"이미지 제작 1개",pct:15},{label:"이미지 제작 2개",pct:15},
+    {label:"이미지 제작 3개",pct:15},{label:"이미지 제작 4개 이상",pct:15},
+  ],
+};
+
+// 출석률 기준 데이터
+const CRITERIA = {
+  common: {
+    title: '공통 학생회 사업', icon: '📢', total: '총 50%',
+    items: [
+      {label:'주점 참여', pct:'15%'},
+      {label:'일일호프 참여', pct:'20%'},
+      {label:'수시논술간식행사 참여', pct:'5%'},
+      {label:'녹두제 부스 준비위원회', pct:'가산점 10%', type:'bonus'},
+    ]
+  },
+  '인권연대국': {
+    title: '인권연대국', icon: '✊',
+    items: [
+      {label:'농활 참여', pct:'25%'},
+      {label:'제1차 분기별 테마활동 참여', pct:'5%'},
+      {label:'제2차 분기별 테마활동 참여', pct:'5%'},
+      {label:'제3차 분기별 테마활동 참여', pct:'5%'},
+      {label:'26-1 중간고사 퀴즈활동 참여', pct:'5%'},
+      {label:'26-1 기말고사 퀴즈활동 참여', pct:'5%'},
+      {label:'26-2 중간고사 퀴즈활동 참여', pct:'5%'},
+      {label:'인권 토크 콘서트 참여', pct:'5%'},
+      {label:"'사회학을 걷다' 파주 답사 참여", pct:'가산점 10%', type:'bonus'},
+    ]
+  },
+  '문화교류국': {
+    title: '문화교류국', icon: '🎭',
+    items: [
+      {label:'교류반 MT 참여', pct:'15%'},
+      {label:'미니고연전 참여', pct:'20%'},
+      {label:'교류반 짝문화 참여', pct:'10%'},
+      {label:'총MT 참여', pct:'15%'},
+      {label:'악만추 참여', pct:'가산점 10%', type:'bonus'},
+    ]
+  },
+  '행정복지국': {
+    title: '행정복지국', icon: '🏛️',
+    items: [
+      {label:'과방 청소 참여 1', pct:'5%'},
+      {label:'과방 청소 참여 2', pct:'5%'},
+      {label:'과방 청소 추가 참여 1', pct:'5%'},
+      {label:'과방 청소 추가 참여 2', pct:'5%'},
+      {label:'간식 행사 참여', pct:'최대 10%', sub:'1회 참여당 5%'},
+      {label:'스터디윗악칠 참여', pct:'최대 10%', sub:'1회 참여당 5%'},
+      {label:'회의 2회 전부 불참', pct:'감점 5%', type:'minus'},
+    ]
+  },
+  '재정회계국': {
+    title: '재정회계국', icon: '💰',
+    items: [
+      {label:'월별보고 작성', pct:'1회당 20%, 최대 40%'},
+      {label:'뒤풀이 정산', pct:'1회 20%, 최대 20%'},
+    ]
+  },
+  '디자인홍보팀': {
+    title: '디자인홍보팀', icon: '🎨',
+    items: [
+      {label:'이미지 제작 1개', pct:'15%'},
+      {label:'이미지 제작 2개', pct:'30%'},
+      {label:'이미지 제작 3개', pct:'45%'},
+      {label:'이미지 제작 4개 이상', pct:'60%'},
+    ]
+  },
+};
+
+// ════════════════════════════════
+// API
+// ════════════════════════════════
+let allMembersCache = null;
+
+async function fetchAll() {
+  if (allMembersCache) return allMembersCache;
+  const res = await fetch(SCRIPT_URL + '?action=getAll');
+  allMembersCache = await res.json();
+  return allMembersCache;
+}
+// 가산점 반영된 실제 출석률로 보정한 전체 데이터
+async function fetchAllWithBonus() {
+  const allData = await fetchAll();
+  const updated = await Promise.all(allData.map(async m => {
+    try {
+      const key = `${m.dept}_${m.sid}`;
+      const logs = await fetchBonusLog(key);
+      const bonusSum = logs && logs.length > 0
+        ? logs.reduce((sum, log) => sum + (parseFloat(log.amount)||0), 0) : 0;
+      return {...m, rate: parseFloat(m.rate)||0 }; // rate는 이미 저장 시 가산점 포함
+    } catch(e) { return m; }
+  }));
+  return updated;
+}
+async function fetchChecks(key) {
+  const res = await fetch(SCRIPT_URL + `?action=getChecks&key=${encodeURIComponent(key)}`);
+  return await res.json();
+}
+async function fetchBonusLog(key) {
+  const res = await fetch(SCRIPT_URL + `?action=getBonusLog&key=${encodeURIComponent(key)}`);
+  return await res.json();
+}
+async function postRate(sid, dept, rate) {
+  await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'setRate', sid, dept, rate})});
+  allMembersCache = null;
+}
+async function postChecks(key, checks) {
+  await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'setChecks', key, checks})});
+}
+async function deleteBonusLogApi(key, rowIndex) {
+  await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'deleteBonusLog', key, rowIndex})});
+}
+async function postBonusLog(key, amount, reason) {
+  await fetch(SCRIPT_URL, {method:'POST', body:JSON.stringify({action:'addBonusLog', key, amount, reason})});
+}
+
+// ════════════════════════════════
+// 페이지 전환
+// ════════════════════════════════
+function goPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+function showLoading(msg='데이터 불러오는 중...') {
+  document.getElementById('loading-text').textContent = msg;
+  document.getElementById('loading').classList.add('show');
+}
+function hideLoading() { document.getElementById('loading').classList.remove('show'); }
+
+// ════════════════════════════════
+// 출석률 기준 페이지
+// ════════════════════════════════
+function buildCriteriaHTML(key) {
+  const keys = key === 'all' ? ['common','인권연대국','문화교류국','행정복지국','재정회계국','디자인홍보팀'] : [key];
+  let html = '';
+  keys.forEach(k => {
+    const c = CRITERIA[k];
+    if (!c) return;
+    html += `<div class="criteria-section">
+      <div class="criteria-section-title">${c.icon} ${c.title}${c.total ? ' <span style="font-size:12px;color:var(--text-muted);font-weight:400">'+c.total+'</span>' : ''}</div>`;
+    c.items.forEach(item => {
+      const typeClass = item.type === 'bonus' ? 'bonus' : item.type === 'minus' ? 'minus' : 'normal';
+      html += `<div class="criteria-item">
+        <div>
+          <div class="criteria-label">${item.label}</div>
+          ${item.sub ? `<div class="criteria-sub">${item.sub}</div>` : ''}
+        </div>
+        <span class="criteria-pct ${typeClass}">${item.pct}</span>
+      </div>`;
+    });
+    html += '</div>';
+  });
+  return html;
+}
+
+function showCriteria(key) {
+  document.querySelectorAll('.criteria-dept-btn').forEach(b => b.classList.remove('active'));
+  const content = document.getElementById('criteria-content');
+  content.innerHTML = `<div class="card">${buildCriteriaHTML(key)}</div>`;
+  content.classList.add('show');
+  setTimeout(() => content.scrollIntoView({behavior:'smooth', block:'start'}), 100);
+}
+
+// ════════════════════════════════
+// 조회
+// ════════════════════════════════
+async function doSearch() {
+  const name = document.getElementById('inp-name').value.trim();
+  const sid  = document.getElementById('inp-sid').value.trim();
+  const dept = document.getElementById('inp-dept').value;
+  const err  = document.getElementById('main-error');
+  if (!name || !sid || !dept) { err.textContent='모든 항목을 입력해주세요.'; err.classList.add('show'); return; }
+  const members = MEMBERS[dept] || [];
+  const found = members.find(m => m.name === name && m.sid === sid);
+  if (!found) { err.classList.add('show'); return; }
+  err.classList.remove('show');
+
+  showLoading('출석 정보 불러오는 중...');
+  allMembersCache = null; // 항상 최신 데이터
+  try {
+    const allData = await fetchAll();
+    hideLoading();
+    const me = allData.find(d => String(d.sid) === String(sid) && d.dept === dept);
+    const rate = me ? parseFloat(me.rate) || 0 : 0;
+
+    document.getElementById('res-avatar').textContent = name[0];
+    document.getElementById('res-name').textContent = name;
+    document.getElementById('res-meta').textContent = `${sid} · ${dept}`;
+    document.getElementById('res-pct').textContent = rate + '%';
+
+    const circ = 2 * Math.PI * 55;
+    const ring = document.getElementById('res-ring');
+    ring.style.strokeDashoffset = circ - (circ * Math.min(rate,100) / 100);
+    ring.style.stroke = rate >= 70 ? '#3fb950' : rate >= 40 ? '#d29922' : '#f85149';
+
+    const badge=document.getElementById('cert-badge'), icon=document.getElementById('cert-icon'),
+          title=document.getElementById('cert-title'), desc=document.getElementById('cert-desc');
+    if (rate >= 70) {
+      badge.className='cert-badge ok'; icon.textContent='🎖️';
+      title.textContent='활동 인증서 발급 가능'; desc.textContent='출석률 70% 이상으로 인증서를 발급받을 수 있습니다.';
+    } else {
+      badge.className='cert-badge no'; icon.textContent='❌';
+      title.textContent='활동 인증서 발급 불가'; desc.textContent=`출석률이 ${rate}%입니다. 70% 이상이어야 발급 가능합니다.`;
+    }
+    await renderActivityDetail(sid, dept);
+    renderRanking(allData, sid, dept);
+    goPage('page-result');
+  } catch(e) {
+    hideLoading();
+    err.textContent='서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.'; err.classList.add('show');
+  }
+}
+
+async function renderActivityDetail(sid, dept) {
+  const key = `${dept}_${sid}`;
+  const [checks, bonusLogs] = await Promise.all([fetchChecks(key), fetchBonusLog(key)]);
+  const acts_groups = ['공통', dept];
+  const listEl = document.getElementById('res-activity-list');
+  listEl.innerHTML = '';
+
+  let hasAny = false;
+
+  acts_groups.forEach(g => {
+    const acts = ACTIVITIES[g];
+    if (!acts) return;
+    acts.forEach((act, idx) => {
+      const actKey = `${g}_${idx}`;
+      if (!checks.includes(actKey)) return;
+      hasAny = true;
+      const item = document.createElement('div');
+      item.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);margin-bottom:5px;';
+      const pctColor = act.pct < 0 ? 'var(--red)' : act.bonus ? 'var(--green)' : 'var(--accent)';
+      item.innerHTML = `<span style="font-size:13.5px;flex:1">${act.label}</span><span style="font-size:12px;font-weight:700;color:${pctColor};padding:2px 8px;border-radius:20px;background:var(--surface)">${act.pct>0?'+':''}${act.pct}%</span>`;
+      listEl.appendChild(item);
+    });
+  });
+
+  // 가산점 기록
+  if (bonusLogs && bonusLogs.length > 0) {
+    bonusLogs.forEach(log => {
+      const amt = parseFloat(log.amount) || 0;
+      if (amt === 0) return;
+      hasAny = true;
+      const item = document.createElement('div');
+      item.style.cssText = 'display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding:9px 13px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);margin-bottom:5px;';
+      const pctColor = amt >= 0 ? 'var(--green)' : 'var(--red)';
+      item.innerHTML = `<span style="font-size:13.5px;flex:1">${log.reason||'가산점'}</span><span style="font-size:12px;font-weight:700;color:${pctColor};padding:2px 8px;border-radius:20px;background:var(--surface);white-space:nowrap">${amt>0?'+':''}${amt}%</span>`;
+      listEl.appendChild(item);
+    });
+  }
+
+  if (!hasAny) {
+    listEl.innerHTML = '<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:12px">인정된 활동 내역이 없습니다.</div>';
+  }
+}
+
+// 공동 순위 계산
+function calcTiedRanks(sorted) {
+  const ranks = [];
+  for (let i = 0; i < sorted.length; i++) {
+    if (i > 0 && (parseFloat(sorted[i].rate)||0) === (parseFloat(sorted[i-1].rate)||0)) {
+      ranks.push(ranks[i-1]);
+    } else {
+      ranks.push(i + 1);
+    }
+  }
+  return ranks;
+}
+
+function renderRanking(allData, mySid, myDept) {
+  const EXCLUDE_NAMES = ['강서연', '강현서', '강보민', '김전민규', '이도은'];
+  const sorted = [...allData].filter(d=>d.name && !EXCLUDE_NAMES.includes(d.name)).sort((a,b)=>(parseFloat(b.rate)||0)-(parseFloat(a.rate)||0));
+  const tiedRanks = calcTiedRanks(sorted);
+  const myIdx = sorted.findIndex(d => String(d.sid)===String(mySid) && d.dept===myDept);
+  const myRank = myIdx >= 0 ? tiedRanks[myIdx] : null;
+  const top10 = sorted.filter((_, i) => tiedRanks[i] <= 10);
+  const isInTop10 = myIdx >= 0 && tiedRanks[myIdx] <= 10;
+  const medals = ['🥇','🥈','🥉'];
+  const listEl = document.getElementById('rank-list');
+  listEl.innerHTML = '';
+  top10.forEach((m) => {
+    const origIdx = sorted.indexOf(m);
+    const rank = tiedRanks[origIdx];
+    const isMe = String(m.sid)===String(mySid) && m.dept===myDept;
+    const pct = parseFloat(m.rate)||0;
+    const pctColor = pct>=70?'var(--green)':pct>=40?'var(--yellow)':'var(--red)';
+    const item = document.createElement('div');
+    item.className = 'rank-item'+(isMe?' me':'')+( rank<=3?` rank-${rank}`:'');
+    item.innerHTML = `
+      ${rank<=3 ? `<span class="rank-medal">${medals[rank-1]}</span>` : `<span class="rank-num">${rank}</span>`}
+      <div style="flex:1;min-width:0">
+        <div class="rank-name">${m.name}${isMe?'<span class="rank-me-badge">나</span>':''}</div>
+        <div class="rank-dept">${m.dept}</div>
+      </div>
+      <span class="rank-pct" style="color:${pctColor}">${pct}%</span>`;
+    listEl.appendChild(item);
+  });
+  const myRankBox = document.getElementById('my-rank-box');
+  if (!isInTop10 && myRank) { document.getElementById('my-rank-num').textContent = myRank+'위'; myRankBox.style.display='flex'; }
+  else { myRankBox.style.display='none'; }
+}
+
+// ════════════════════════════════
+// 관리자 로그인
+// ════════════════════════════════
+function doLogin() {
+  const pw = document.getElementById('inp-pw').value;
+  const err = document.getElementById('pw-error');
+  if (pw === 'akakak777') {
+    err.classList.remove('show');
+    document.getElementById('inp-pw').value='';
+    document.getElementById('member-section').style.display='none';
+    document.getElementById('check-section').style.display='none';
+    goPage('page-admin');
+    loadAdminRanking();
+  } else { err.classList.add('show'); }
+}
+
+async function loadAdminRanking() {
+  try {
+    const allData = await fetchAll();
+    const EXCLUDE_NAMES = ['강서연', '강현서', '강보민', '김전민규', '이도은'];
+    const sorted = [...allData].filter(d=>d.name && !EXCLUDE_NAMES.includes(d.name)).sort((a,b)=>(parseFloat(b.rate)||0)-(parseFloat(a.rate)||0));
+    const medals = ['🥇','🥈','🥉'];
+    const listEl = document.getElementById('admin-rank-list');
+    listEl.innerHTML = '';
+    const tiedR = calcTiedRanks(sorted);
+    sorted.forEach((m, i) => {
+      const rank = tiedR[i], pct = parseFloat(m.rate)||0;
+      const pctColor = pct>=70?'var(--green)':pct>=40?'var(--yellow)':'var(--red)';
+      const item = document.createElement('div');
+      item.className = 'admin-rank-item'+(rank<=3?` rank-${rank}`:'');
+      item.innerHTML = `
+        <span class="admin-rank-num">${rank<=3?medals[rank-1]:rank}</span>
+        <div style="flex:1;min-width:0">
+          <div class="admin-rank-name">${m.name}</div>
+          <div class="admin-rank-dept">${m.dept}</div>
+        </div>
+        <span class="admin-rank-pct" style="color:${pctColor}">${pct}%</span>`;
+      listEl.appendChild(item);
+    });
+    document.getElementById('admin-rank-section').style.display='block';
+  } catch(e) {}
+}
+
+// ════════════════════════════════
+// 관리자 - 국서 / 국원
+// 가산점 기록 렌더링 함수 (X 삭제 버튼 포함)
+function renderBonusLogs(bonusLogs, dept, sid) {
+  const logList = document.getElementById('bonus-log-list');
+  if (!bonusLogs || bonusLogs.length === 0) {
+    logList.innerHTML = '<div class="bonus-log-empty">기록 없음</div>';
+    return;
+  }
+  logList.innerHTML = '';
+  bonusLogs.slice().reverse().forEach(log => {
+    const amt = parseFloat(log.amount) || 0;
+    const div = document.createElement('div');
+    div.className = 'bonus-log-item';
+    div.innerHTML = `
+      <span class="bonus-log-amount ${amt>=0?'pos':'neg'}">${amt>=0?'+':''}${amt}%</span>
+      <div class="bonus-log-right">
+        <div class="bonus-log-reason">${log.reason||'(이유 없음)'}</div>
+        <div class="bonus-log-date">${log.date||''}</div>
+      </div>
+      <button class="bonus-delete-btn" title="삭제">✕</button>`;
+    div.querySelector('.bonus-delete-btn').addEventListener('click', async () => {
+      if (!confirm('이 가산점 기록을 삭제할까요?')) return;
+      const key = `${dept}_${sid}`;
+      showLoading('삭제 중...');
+      try {
+        await deleteBonusLogApi(key, log.rowIndex);
+        // 출석률 재계산 후 저장
+        const [checks, newLogs] = await Promise.all([fetchChecks(key), fetchBonusLog(key)]);
+        const bonusSum = newLogs && newLogs.length > 0
+          ? newLogs.reduce((sum, l) => sum + (parseFloat(l.amount)||0), 0) : 0;
+        let checkTotal = 0;
+        const actGroups = ['공통', dept];
+        actGroups.forEach(g => {
+          const acts = ACTIVITIES[g]; if (!acts) return;
+          acts.forEach((act, idx) => {
+            if (checks.includes(`${g}_${idx}`)) checkTotal += parseFloat(act.pct);
+          });
+        });
+        const newRate = Math.max(0, checkTotal + bonusSum);
+        await postRate(sid, dept, newRate);
+        allMembersCache = null;
+        hideLoading();
+        renderBonusLogs(newLogs, dept, sid);
+        bonusTotal = bonusSum;
+        recalcRate();
+        loadAdminRanking();
+        showToast('삭제되었습니다.', 'success');
+      } catch(e) { hideLoading(); showToast('삭제 실패. 다시 시도해주세요.', 'error'); }
+    });
+    logList.appendChild(div);
+  });
+}
+
+// ════════════════════════════════
+let curDept=null, curMember=null, bonusTotal=0;
+
+function selectDept(dept) {
+  curDept=dept; curMember=null;
+  document.querySelectorAll('.dept-btn').forEach(b=>b.classList.toggle('active',b.textContent.includes(dept)));
+  const members=MEMBERS[dept]||[], listEl=document.getElementById('member-list');
+  listEl.innerHTML='';
+  members.forEach(m=>{
+    const btn=document.createElement('button');
+    btn.className='member-btn'+(m.role==='국장'?' is-leader':'');
+    btn.textContent=m.role==='국장'?m.name+' 👑':m.name;
+    btn.onclick=()=>selectMember(m);
+    listEl.appendChild(btn);
+  });
+  document.getElementById('member-section-title').textContent=dept+' 국원 목록';
+  document.getElementById('member-section').style.display='block';
+  document.getElementById('check-section').style.display='none';
+}
+
+async function selectMember(m) {
+  curMember=m; bonusTotal=0;
+  document.querySelectorAll('.member-btn').forEach(b=>b.classList.toggle('active',b.textContent.includes(m.name)));
+
+  showLoading('국원 데이터 불러오는 중...');
+  const key=`${curDept}_${m.sid}`;
+  const [savedChecks, bonusLogs] = await Promise.all([fetchChecks(key), fetchBonusLog(key)]);
+  hideLoading();
+
+  // 가산점 기록 렌더링
+  renderBonusLogs(bonusLogs, curDept, m.sid);
+
+  // 체크박스 렌더링
+  const wrap=document.getElementById('check-items-wrap');
+  wrap.innerHTML='';
+  ['공통', curDept].forEach(g=>{
+    const acts=ACTIVITIES[g]; if(!acts) return;
+    const groupDiv=document.createElement('div'); groupDiv.className='check-group';
+    const gtitle=document.createElement('div'); gtitle.className='check-group-title';
+    gtitle.textContent=g==='공통'?'공통 학생회 사업 (총 50%)':g+' 활동';
+    groupDiv.appendChild(gtitle);
+    acts.forEach((act,idx)=>{
+      const actKey=`${g}_${idx}`;
+      const isChecked=savedChecks.includes(actKey);
+      const item=document.createElement('div');
+      item.className='check-item'+(isChecked?' checked':'');
+      item.innerHTML=`
+        <div class="check-box"></div>
+        <span class="check-label">${act.label}</span>
+        <span class="check-pct ${act.minus?'minus':'plus'}">${act.pct>0?'+':''}${act.pct}%</span>`;
+      item.dataset.key=actKey;
+      item.dataset.pct=act.pct;
+      item.addEventListener('click', ()=>{
+        item.classList.toggle('checked');
+        recalcRate();
+      });
+      groupDiv.appendChild(item);
+    });
+    wrap.appendChild(groupDiv);
+  });
+
+  document.getElementById('bonus-input').value='';
+  document.getElementById('bonus-reason').value='';
+  // 과거 가산점 기록 합산해서 bonusTotal에 반영
+  bonusTotal = bonusLogs && bonusLogs.length > 0
+    ? bonusLogs.reduce((sum, log) => sum + (parseFloat(log.amount) || 0), 0)
+    : 0;
+  document.getElementById('check-member-name').textContent=m.name+' · '+m.sid;
+  recalcRate();
+  document.getElementById('check-section').style.display='block';
+  setTimeout(()=>document.getElementById('check-section').scrollIntoView({behavior:'smooth',block:'start'}),100);
+}
+
+function recalcRate() {
+  let total=0;
+  document.querySelectorAll('#check-items-wrap .check-item').forEach(item=>{
+    if(item.classList.contains('checked')) total+=parseFloat(item.dataset.pct);
+  });
+  total+=bonusTotal;
+  total=Math.max(0,total);
+  document.getElementById('admin-rate-num').textContent=total+'%';
+  const numEl=document.getElementById('admin-rate-num');
+  numEl.style.color=total>=70?'var(--green)':total>=40?'var(--yellow)':'var(--red)';
+}
+
+async function applyBonus() {
+  const val=parseFloat(document.getElementById('bonus-input').value);
+  const reason=document.getElementById('bonus-reason').value.trim();
+  if(isNaN(val)){ showToast('숫자를 입력해주세요.','error'); return; }
+  if(!reason){ showToast('이유를 입력해주세요.','error'); return; }
+
+  const key=`${curDept}_${curMember.sid}`;
+  showLoading('기록 저장 중...');
+  try {
+    await postBonusLog(key, val, reason);
+    hideLoading();
+    bonusTotal+=val;
+    document.getElementById('bonus-input').value='';
+    document.getElementById('bonus-reason').value='';
+    recalcRate();
+
+    // 기록 목록 새로고침
+    const logs=await fetchBonusLog(key);
+    renderBonusLogs(logs, curDept, curMember.sid);
+
+    showToast(`${val>0?'+':''}${val}% 적용됨`,'success');
+  } catch(e){ hideLoading(); showToast('저장 실패. 다시 시도해주세요.','error'); }
+}
+
+async function saveRate() {
+  if(!curMember) return;
+
+  // 체크박스 합계
+  let checkTotal = 0;
+  const checkedKeys = [];
+  document.querySelectorAll('#check-items-wrap .check-item').forEach(item => {
+    if(item.classList.contains('checked')) {
+      checkTotal += parseFloat(item.dataset.pct);
+      checkedKeys.push(item.dataset.key);
+    }
+  });
+
+  // 가산점기록에서 합산 (중복 누적 방지)
+  const key = `${curDept}_${curMember.sid}`;
+  let bonusSum = 0;
+  try {
+    const logs = await fetchBonusLog(key);
+    bonusSum = logs && logs.length > 0
+      ? logs.reduce((sum, log) => sum + (parseFloat(log.amount) || 0), 0)
+      : 0;
+  } catch(e) {}
+
+  const total = Math.max(0, checkTotal + bonusSum);
+
+  showLoading('저장 중...');
+  try {
+    await postRate(curMember.sid, curDept, total);
+    await postChecks(key, checkedKeys);
+    hideLoading();
+    showToast('✓ 저장되었습니다!','success');
+    loadAdminRanking();
+  } catch(e){ hideLoading(); showToast('저장 실패. 다시 시도해주세요.','error'); }
+}
+function showToast(msg,type='success') {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.className=`toast ${type} show`;
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// 엔터키
+document.getElementById('inp-sid').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+document.getElementById('inp-name').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('inp-sid').focus();});
+</script>
+</body>
+</html>
